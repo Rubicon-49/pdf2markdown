@@ -1,0 +1,8 @@
+runtime: python313
+
+entrypoint: gunicorn -w l -b :$PORT "pdf2markdown.app:app"
+
+secret_environment_variables:
+  - name: LLAMA_CLOUD_API_KEY
+    secret: llama-cloud-api-key
+    version: latest

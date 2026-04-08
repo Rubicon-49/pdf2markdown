@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF → Markdown</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #141414;
+    --surface2: #1c1c1c;
+    --border: #2a2a2a;
+    --border2: #333;
+    --accent: #c8f05a;
+    --accent2: #7effd4;
+    --accent3: #f0a05a;
+    --text: #e8e8e8;
+    --muted: #666;
+    --muted2: #888;
+    --error: #ff6b6b;
+    --radius: 10px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.25;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 940px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 44px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; }
+  .logo span { color: var(--accent); }
+  .tagline { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .gpu-badge {
+    margin-left: auto;
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #333;
+    color: var(--accent3);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* Drop zone */
+  .dropzone {
+    border: 2px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 52px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+    background: var(--surface);
+  }
+  .dropzone:hover, .dropzone.dragover { border-color: var(--accent); background: rgba(200,240,90,0.03); }
+  .dropzone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .drop-icon { font-size: 32px; margin-bottom: 10px; display: block; }
+  .drop-title { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; margin-bottom: 5px; }
+  .drop-sub { font-size: 12px; color: var(--muted); }
+  .file-chosen { margin-top: 10px; font-size: 12px; color: var(--accent2); display: none; }
+  .file-chosen.visible { display: block; }
+
+  /* Options grid */
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .option-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .option-card.full { grid-column: 1 / -1; }
+  .option-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  /* Seg buttons */
+  .seg-group { display: flex; gap: 4px; flex-wrap: wrap; }
+  .seg {
+    padding: 5px 11px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--muted2);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .seg:hover { border-color: #555; color: var(--text); }
+  .seg.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 500; }
+  .seg.cloud { }
+  .seg.cloud.active { background: var(--accent3); border-color: var(--accent3); color: #000; }
+
+  /* Sub-options (shown conditionally) */
+  .sub-options { display: none; margin-top: 12px; }
+  .sub-options.visible { display: block; }
+  .sub-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; display: block; }
+
+  /* Toggles */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .toggle-row:last-child { margin-bottom: 0; }
+  .toggle-name { font-size: 12px; color: var(--text); }
+  .toggle { position: relative; width: 36px; height: 20px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; inset: 0; background: var(--border2); border-radius: 20px; cursor: pointer; transition: background 0.2s; }
+  .slider::after { content: ''; position: absolute; left: 3px; top: 3px; width: 14px; height: 14px; background: var(--muted2); border-radius: 50%; transition: transform 0.2s, background 0.2s; }
+  .toggle input:checked + .slider { background: rgba(200,240,90,0.2); }
+  .toggle input:checked + .slider::after { transform: translateX(16px); background: var(--accent); }
+
+  /* Text input (for API key) */
+  .api-key-input {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .api-key-input:focus { border-color: var(--accent3); }
+  .api-key-input::placeholder { color: var(--muted); }
+  .api-key-hint { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .api-key-hint a { color: var(--accent3); text-decoration: none; }
+  .api-key-hint a:hover { text-decoration: underline; }
+
+  /* Info note */
+  .info-note {
+    font-size: 11px;
+    color: var(--muted2);
+    background: rgba(240,160,90,0.07);
+    border: 1px solid rgba(240,160,90,0.2);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-top: 10px;
+    line-height: 1.6;
+  }
+  .info-note.green {
+    background: rgba(200,240,90,0.06);
+    border-color: rgba(200,240,90,0.18);
+    color: var(--muted2);
+  }
+
+  /* Convert button */
+  .btn-convert {
+    margin-top: 16px;
+    width: 100%;
+    padding: 15px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+  }
+  .btn-convert:hover { opacity: 0.88; transform: translateY(-1px); }
+  .btn-convert:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  .progress-wrap {
+    height: 3px;
+    background: var(--border);
+    border-radius: 0 0 var(--radius) var(--radius);
+    overflow: hidden;
+    display: none;
+  }
+  .progress-wrap.visible { display: block; }
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transition: width 0.4s ease;
+  }
+
+  /* Job panel */
+  #job-panel { display: none; margin-top: 28px; }
+  #job-panel.visible { display: block; }
+  .job-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .job-header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+  .job-filename { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 14px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status-pill { font-size: 10px; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+  .status-pill.queued  { background: rgba(102,102,102,0.2); color: var(--muted2); }
+  .status-pill.running { background: rgba(126,255,212,0.12); color: var(--accent2); }
+  .status-pill.done    { background: rgba(200,240,90,0.12); color: var(--accent); }
+  .status-pill.error   { background: rgba(255,107,107,0.12); color: var(--error); }
+  .log-box { padding: 14px 20px; font-size: 12px; line-height: 1.75; color: var(--muted2); min-height: 56px; border-bottom: 1px solid var(--border); }
+  .log-line { display: block; }
+  .stats-row { display: none; }
+  .stats-row.visible { display: flex; border-bottom: 1px solid var(--border); }
+  .stat { flex: 1; padding: 12px 20px; border-right: 1px solid var(--border); }
+  .stat:last-child { border-right: none; }
+  .stat-val { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: var(--accent); }
+  .stat-key { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+  .preview-wrap { display: none; }
+  .preview-wrap.visible { display: block; }
+  .preview-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid var(--border); }
+  .preview-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+  .btn-download { padding: 6px 14px; background: transparent; border: 1px solid var(--accent); color: var(--accent); border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 11px; cursor: pointer; transition: background 0.15s, color 0.15s; }
+  .btn-download:hover { background: var(--accent); color: #000; }
+  .preview-code { padding: 20px; font-size: 12px; line-height: 1.75; color: #b8c8a8; overflow-x: auto; white-space: pre-wrap; word-break: break-word; max-height: 400px; overflow-y: auto; }
+  .preview-fade { padding: 10px 20px; font-size: 11px; color: var(--muted); text-align: center; border-top: 1px solid var(--border); }
+  .error-box { padding: 16px 20px; color: var(--error); font-size: 12px; display: none; line-height: 1.6; }
+  .error-box.visible { display: block; }
+
+  /* History */
+  #history { margin-top: 36px; display: none; }
+  #history.visible { display: block; }
+  .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 10px; }
+  .history-list { display: flex; flex-direction: column; gap: 6px; }
+  .history-item { display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; cursor: pointer; transition: border-color 0.15s; }
+  .history-item:hover { border-color: var(--border2); }
+  .history-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .history-dot.done { background: var(--accent); }
+  .history-dot.error { background: var(--error); }
+  .history-dot.running, .history-dot.queued { background: var(--muted); }
+  .history-name { flex: 1; color: var(--muted2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .history-status { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* Spinner */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { display: inline-block; width: 11px; height: 11px; border: 2px solid var(--border2); border-top-color: var(--accent2); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 5px; }
+
+  @media (max-width: 580px) {
+    .options-grid { grid-template-columns: 1fr; }
+    .option-card.full { grid-column: auto; }
+    header { flex-wrap: wrap; }
+    .gpu-badge { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">pdf<span>→</span>md</div>
+    <div class="tagline">local converter</div>
+    <div class="gpu-badge" id="sys-badge">detecting…</div>
+  </header>
+
+  <!-- Drop zone -->
+  <div class="dropzone" id="dropzone">
+    <input type="file" id="file-input" accept=".pdf">
+    <span class="drop-icon">⬡</span>
+    <div class="drop-title">Drop your PDF here</div>
+    <div class="drop-sub">or click to browse</div>
+    <div class="file-chosen" id="file-chosen"></div>
+  </div>
+
+  <!-- Options -->
+  <div class="options-grid">
+
+    <!-- Backend selector -->
+    <div class="option-card full">
+      <span class="option-label">Backend engine</span>
+      <div class="seg-group" id="backend-group">
+        <button class="seg active" data-val="docling">Docling</button>
+        <button class="seg" data-val="pymupdf4llm">PyMuPDF4LLM</button>
+        <button class="seg" data-val="marker">Marker</button>
+        <button class="seg cloud" data-val="llamaparse">LlamaParse ☁</button>
+      </div>
+
+      <!-- LlamaParse sub-options -->
+      <div class="sub-options" id="llamaparse-opts">
+        <span class="sub-label" style="margin-top:12px">LlamaCloud API key</span>
+        <input class="api-key-input" id="llamaparse-key" type="password"
+               placeholder="llx-xxxxxxxxxxxxxxxxxxxxxxxx  (or set LLAMA_CLOUD_API_KEY in env)">
+        <p class="api-key-hint">
+          Free tier: 1,000 pages/day · Paid: $0.003/page ·
+          <a href="https://cloud.llamaindex.ai/" target="_blank" rel="noopener">Get key ↗</a>
+        </p>
+        <div class="info-note" style="margin-top:8px">
+          ☁ LlamaParse is a <strong>cloud API</strong> — PDFs are sent to LlamaIndex servers.
+          No GPU required locally.
+        </div>
+        <div class="sub-options" id="device-opts">
+          <span class="sub-label" style="margin-top:12px">Device</span>
+          <div class="seg-group" id="device-group">
+            <button class="seg active" data-val="gpu">GPU</button>
+            <button class="seg" data-val="cpu">CPU</button>
+          </div>
+          <div class="info-note" id="device-note" style="margin-top:8px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Processing options (hidden for llamaparse / pymupdf4llm) -->
+    <div class="option-card" id="extra-opts">
+      <span class="option-label">Processing</span>
+      <div class="toggle-row">
+        <span class="toggle-name">OCR (scanned PDFs)</span>
+        <label class="toggle"><input type="checkbox" id="opt-ocr"><span class="slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-name">Table extraction</span>
+        <label class="toggle"><input type="checkbox" id="opt-tables" checked><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="option-card">
+      <span class="option-label">Post-processing</span>
+      <div class="toggle-row">
+        <span class="toggle-name">Clean extra whitespace</span>
+        <label class="toggle"><input type="checkbox" id="opt-clean" checked><span class="slider"></span></label>
+      </div>
+    </div>
+
+  </div>
+
+  <button class="btn-convert" id="btn-convert" disabled>Select a PDF to convert</button>
+
+  <!-- Job output -->
+  <div id="job-panel">
+    <div class="job-card">
+      <div class="job-header">
+        <div class="job-filename" id="job-filename">—</div>
+        <div class="status-pill queued" id="status-pill">queued</div>
+      </div>
+      <div class="progress-wrap" id="progress-wrap">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <div class="log-box" id="log-box"></div>
+      <div class="stats-row" id="stats-row">
+        <div class="stat"><div class="stat-val" id="stat-words">—</div><div class="stat-key">words</div></div>
+        <div class="stat"><div class="stat-val" id="stat-lines">—</div><div class="stat-key">lines</div></div>
+      </div>
+      <div class="preview-wrap" id="preview-wrap">
+        <div class="preview-toolbar">
+          <span class="preview-label">Preview (first 3 000 chars)</span>
+          <button class="btn-download" id="btn-download">↓ Download .md</button>
+        </div>
+        <pre class="preview-code" id="preview-code"></pre>
+        <div class="preview-fade" id="preview-fade"></div>
+      </div>
+      <div class="error-box" id="error-box"></div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div id="history">
+    <div class="section-title">Session history</div>
+    <div class="history-list" id="history-list"></div>
+  </div>
+</div>
+
+<script>
+let currentJobId = null;
+let pollInterval = null;
+let selectedBackend = 'docling';
+let selectedFile = null;
+let selectedDevice = 'gpu';
+
+const fileInput    = document.getElementById('file-input');
+const dropzone     = document.getElementById('dropzone');
+const fileChosen   = document.getElementById('file-chosen');
+const btnConvert   = document.getElementById('btn-convert');
+const jobPanel     = document.getElementById('job-panel');
+const jobFilename  = document.getElementById('job-filename');
+const statusPill   = document.getElementById('status-pill');
+const logBox       = document.getElementById('log-box');
+const statsRow     = document.getElementById('stats-row');
+const previewWrap  = document.getElementById('preview-wrap');
+const previewCode  = document.getElementById('preview-code');
+const previewFade  = document.getElementById('preview-fade');
+const errorBox     = document.getElementById('error-box');
+const btnDownload  = document.getElementById('btn-download');
+const historyEl    = document.getElementById('history');
+const historyList  = document.getElementById('history-list');
+const extraOpts    = document.getElementById('extra-opts');
+const llamaOpts    = document.getElementById('llamaparse-opts');
+const progressWrap = document.getElementById('progress-wrap');
+const progressBar  = document.getElementById('progress-bar');
+
+// Backend selector
+document.getElementById('backend-group').addEventListener('click', e => {
+  const btn = e.target.closest('.seg');
+  if (!btn) return;
+  document.querySelectorAll('#backend-group .seg').forEach(s => s.classList.remove('active'));
+  btn.classList.add('active');
+  selectedBackend = btn.dataset.val;
+  updateBackendUI();
+});
+
+document.getElementById('device-group').addEventListener('click', e => {
+    const btn = e.target.closest('.seg');
+    if (!btn) return;
+    document.querySelectorAll('#device-group .seg').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    selectedDevice = btn.dataset.val;
+    updateDeviceNote();
+});
+
+function updateBackendUI() {
+    const showExtra = ['docling', 'marker'].includes(selectedBackend);
+    extraOpts.style.opacity = showExtra ? '1' : '0.4';
+    llamaOpts.classList.toggle('visible', selectedBackend === 'llamaparse');
+
+    const deviceOpts = document.getElementById('device-opts');
+    deviceOpts.classList.toggle('visible', showExtra);
+}
+
+function updateDeviceNote() {
+    const note = document.getElementById('device-note');
+    if (selectedDevice === 'cpu') {
+        note.textContent = '⚠ CPU mode is significantly slower. Marker can take 10+ min/page.';
+        note.style.display = 'block';
+    } else {
+        note.style.display = 'none';
+    }
+}
+
+function updateProgress(status, logCount) {
+    if (status === 'done') {
+        progressBar.style.width = '100%';
+        setTimeout(() => progressWrap.classList.remove('visible'), 800);
+        return;
+    }
+    if (status === 'error') {
+        progressBar.style.background = 'var(--error)';
+        progressBar.style.width = '100%';
+        return;
+    }
+    // Animate forward with each new log message, capped at 85%
+    const pct = Math.min(10 + logCount * 15, 85);
+    progressBar.style.width = `${pct}%`;
+}
+
+// Drag & drop
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.toLowerCase().endsWith('.pdf')) setFile(f);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+
+function setFile(f) {
+  selectedFile = f
+  fileChosen.textContent = `✓ ${f.name} (${(f.size / 1024).toFixed(0)} KB)`;
+  fileChosen.classList.add('visible');
+  btnConvert.disabled = false;
+  btnConvert.textContent = `Convert "${f.name}"`;
+}
+
+// Submit
+btnConvert.addEventListener('click', async () => {
+  const f = selectedFile;
+  if (!f) return;
+
+  btnConvert.disabled = true;
+  btnConvert.textContent = 'Uploading…';
+
+  const fd = new FormData();
+  fd.append('file', f);
+  fd.append('backend', selectedBackend);
+  fd.append('ocr',    document.getElementById('opt-ocr').checked);
+  fd.append('tables', document.getElementById('opt-tables').checked);
+  fd.append('clean_whitespace', document.getElementById('opt-clean').checked);
+  fd.append('llamaparse_api_key', document.getElementById('llamaparse-key').value.trim());
+  fd.append('device', selectedDevice);
+
+  const res  = await fetch('/convert', { method: 'POST', body: fd });
+  const data = await res.json();
+  if (!res.ok) { alert(data.error); btnConvert.disabled = false; return; }
+
+  currentJobId = data.job_id;
+  startPolling(currentJobId, f.name);
+});
+
+function startPolling(jobId, filename) {
+  clearInterval(pollInterval);
+  resetJobPanel(filename);
+  jobPanel.classList.add('visible');
+
+  pollInterval = setInterval(async () => {
+    const res  = await fetch(`/status/${jobId}`);
+    const data = await res.json();
+    updateJobPanel(data, jobId);
+    if (data.status === 'done' || data.status === 'error') {
+      clearInterval(pollInterval);
+      btnConvert.disabled = false;
+      btnConvert.textContent = 'Convert another PDF';
+      refreshHistory();
+    }
+  }, 900);
+}
+
+function resetJobPanel(filename) {
+  jobFilename.textContent = filename;
+  setStatusPill('queued');
+  logBox.innerHTML = '';
+  statsRow.classList.remove('visible');
+  previewWrap.classList.remove('visible');
+  errorBox.classList.remove('visible');
+  errorBox.textContent = '';
+  progressWrap.classList.add('visible');
+  progressBar.style.width = '0%';
+}
+
+function setStatusPill(s) {
+  statusPill.className = `status-pill ${s}`;
+  statusPill.innerHTML = s === 'running'
+    ? `<span class="spinner"></span>running`
+    : s;
+}
+
+function updateJobPanel(data, jobId) {
+  updateProgress(data.status, data.log?.length ?? 0);
+  setStatusPill(data.status);
+  if (data.log?.length) {
+    logBox.innerHTML = data.log.map(l => `<span class="log-line">${escHtml(l)}</span>`).join('');
+  }
+  if (data.status === 'done') {
+    if (data.stats) {
+      document.getElementById('stat-words').textContent = data.stats.words.toLocaleString();
+      document.getElementById('stat-lines').textContent = data.stats.lines.toLocaleString();
+      statsRow.classList.add('visible');
+    }
+    if (data.preview) {
+      previewCode.textContent = data.preview;
+      previewFade.textContent = 'Showing first 3,000 characters — download for full file';
+      previewWrap.classList.add('visible');
+    }
+    btnDownload.onclick = () => { window.location = `/download/${jobId}`; };
+  }
+  if (data.status === 'error') {
+    errorBox.textContent = '❌ ' + (data.error || 'Unknown error');
+    errorBox.classList.add('visible');
+  }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function refreshHistory() {
+  const res  = await fetch('/jobs');
+  const jobs = await res.json();
+  if (!jobs.length) return;
+  historyEl.classList.add('visible');
+  historyList.innerHTML = jobs.slice().reverse().map(j => `
+    <div class="history-item" data-id="${j.job_id}">
+      <div class="history-dot ${j.status}"></div>
+      <div class="history-name">${escHtml(j.filename || '—')}</div>
+      <div class="history-status">${j.status}</div>
+    </div>`).join('');
+  historyList.querySelectorAll('.history-item').forEach(el => {
+    el.addEventListener('click', async () => {
+      const id = el.dataset.id;
+      resetJobPanel(el.querySelector('.history-name').textContent);
+      jobPanel.classList.add('visible');
+      const res2  = await fetch(`/status/${id}`);
+      const data2 = await res2.json();
+      updateJobPanel(data2, id);
+    });
+  });
+}
+
+updateBackendUI();
+
+fetch('/system').then(r => r.json()).then(info => {
+    const badge = document.getElementById('sys-badge');
+    if (info.gpu_available) {
+        const vram = (info.gpu_vram_mb / 1024).toFixed(0);
+        badge.textContent = `${vram} GB VRAM · ${info.os}`;
+    } else {
+        badge.textContent = `CPU only · ${info.os}`;
+        badge.style.color = 'var(--muted2)';
+        // Force CPU mode and disable GPU button
+        selectedDevice = 'cpu';
+        const gpuBtn = document.querySelector('#device-group [data-val="gpu"]');
+        gpuBtn.classList.remove('active');
+        gpuBtn.disabled = true;
+        gpuBtn.style.opacity = '0.35';
+        document.querySelector('#device-group [data-val="cpu"]').classList.add('active');
+    }
+});
+</script>
+</body>
+</html>
