@@ -86,7 +86,7 @@ def convert_docling(
         }
     )
     result = converter.convert(str(pdf_path))
-    return cast(str, result.document.export_to_markdown())
+    return result.document.export_to_markdown()
 
 
 # ---------------------------------------------------------------------------
@@ -307,9 +307,7 @@ def run_conversion(
     backend = options.get("backend", "docling")
     fn = BACKENDS.get(backend)
     if fn is None:
-        raise ValueError(
-            f"Unknown backend '{backend}'." f"Valid options: {list(BACKENDS)}"
-        )
+        raise ValueError(f"Unknown backend '{backend}'.Valid options: {list(BACKENDS)}")
     logger.debug("run_conversion: backend=%s, file=%s", backend, pdf_path.name)
 
     def _log(msg: str) -> None:

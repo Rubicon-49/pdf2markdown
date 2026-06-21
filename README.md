@@ -1,5 +1,7 @@
 # PDF → Markdown Converter
 
+[![CI](https://github.com/Rubicon-49/pdf2markdown/actions/workflows/ci.yml/badge.svg)](https://github.com/Rubicon-49/pdf2markdown/actions/workflows/ci.yml)
+
 Browser-based tool that converts PDFs to Markdown.
 Supports **4 backends**: Docling · PyMuPDF4LLM · Marker · LlamaParse.
 
@@ -80,6 +82,39 @@ make run
 ```
 
 Open <http://localhost:7860> in your browser.
+
+---
+
+## Run with Docker
+
+Self-contained container with GPU access. Requires Docker, Compose, and
+the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+on the host.
+
+```bash
+# (optional) put your LlamaParse key in .env first
+docker compose up --build
+```
+
+Then open <http://localhost:7860>.
+
+- **Image:** CUDA 12.8 + cuDNN on Ubuntu 24.04, Python 3.13 installed via uv.
+- **First build:** ~10 min and ~7 GB (pytorch + transformers + the four backends).
+- **First conversion** with docling or marker downloads ~600 MB / ~1.5 GB
+  of models into the `model-cache` named volume — subsequent runs hit the cache.
+- **Bind mounts:** `outputs/`, `uploads/`, `logs/` live on the host so files
+  survive container restarts.
+- **No GPU?** Drop the `deploy.resources.reservations` block in
+  `docker-compose.yml`. PyMuPDF and LlamaParse still work; Marker becomes slow.
+
+Useful commands:
+
+```bash
+docker compose up -d        # detached
+docker compose logs -f      # tail logs
+docker compose down         # stop + remove container (volumes survive)
+docker compose down -v      # also drop the model cache
+```
 
 ---
 
