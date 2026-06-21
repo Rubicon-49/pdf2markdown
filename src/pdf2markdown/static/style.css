@@ -1,0 +1,367 @@
+/* ===========================================================
+   pdf2markdown — dark theme
+   =========================================================== */
+
+:root {
+  --bg: #0d0d0d;
+  --surface: #141414;
+  --surface-2: #1c1c1c;
+  --border: #2a2a2a;
+  --text: #eaeaea;
+  --muted: #8a8a8a;
+  --accent: #c8f05a;
+  --accent-ink: #000;
+  --error: #ff7474;
+  --radius: 10px;
+  font-family:
+    "DM Mono", "SF Mono", Menlo, Monaco, "Courier New", monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ── header ──────────────────────────────────────────────── */
+
+.topbar {
+  text-align: center;
+  padding: 2.25rem 1rem 1.5rem;
+}
+
+.brand {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.brand-arrow {
+  color: var(--accent);
+  margin: 0 0.6rem;
+}
+
+.tagline {
+  color: var(--muted);
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+}
+
+/* ── layout ──────────────────────────────────────────────── */
+
+.layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  padding: 0 1.5rem 2rem;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+/* ── form ────────────────────────────────────────────────── */
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--surface-2);
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem 1rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dropzone:hover {
+  border-color: var(--accent);
+}
+
+.dropzone input[type="file"] {
+  display: none;
+}
+
+.dropzone-label strong {
+  color: var(--text);
+}
+
+.dropzone-file {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.field {
+  border: none;
+  padding: 0;
+  margin: 1.25rem 0 0;
+}
+
+.field legend {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+  padding: 0;
+}
+
+.engine-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.engine-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.engine-option input {
+  accent-color: var(--accent);
+}
+
+.engine-option:has(input:checked) {
+  border-color: var(--accent);
+  background: rgba(200, 240, 90, 0.08);
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: 0.6rem 0 0;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.35rem 0;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.check input {
+  accent-color: var(--accent);
+}
+
+.field input[type="password"],
+.field input[type="text"] {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.55rem 0.75rem;
+  font: inherit;
+}
+
+.btn-primary {
+  display: inline-block;
+  margin-top: 1.5rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1.2rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+/* ── progress / result pane ──────────────────────────────── */
+
+.progress-pane.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--muted);
+}
+
+.empty-msg {
+  margin: 0;
+}
+
+.progress-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+.spinner.hidden {
+  display: none;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.progress-bar {
+  background: var(--surface-2);
+  border-radius: 999px;
+  height: 6px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+#progress-fill {
+  background: var(--accent);
+  height: 100%;
+  width: 0;
+  transition: width 0.2s ease;
+}
+
+.page-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.page-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.55rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.page-item.done {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.page-num {
+  font-weight: 700;
+}
+
+.log-details {
+  margin-top: 0.75rem;
+}
+
+.log-details summary {
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+#progress-log {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  margin: 0.5rem 0 0;
+  max-height: 180px;
+  overflow: auto;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+}
+
+/* ── result ──────────────────────────────────────────────── */
+
+.result {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.result-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.result-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats {
+  display: flex;
+  gap: 1.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.stat-num {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.preview-details summary {
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.preview {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin: 0.5rem 0 0;
+  max-height: 360px;
+  overflow: auto;
+  font-size: 0.82rem;
+  white-space: pre-wrap;
+}

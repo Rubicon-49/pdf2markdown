@@ -41,8 +41,9 @@ $(VENV)/.installed: pyproject.toml uv.lock
 
 install: $(VENV)/.installed ## Install project (skipped if up to date)
 
-run: $(VENV)/.installed ## Start the Flask dev server on port 5000
-	uv run python src/pdf2markdown/app.py
+run: $(VENV)/.installed ## Start the FastAPI app on http://localhost:7860
+	PYTORCH_ALLOC_CONF=expandable_segments:True \
+		uv run python app.py
 
 notebook-kernel: $(VENV)/.installed ## Register venv as Jupyter kernel
 	uv run python -m ipykernel install --user --name=$(PACKAGE_NAME) \

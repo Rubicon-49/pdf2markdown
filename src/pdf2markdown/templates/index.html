@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>pdf → markdown</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
+    <script src="https://unpkg.com/htmx-ext-sse@2.2.2" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-pdf">PDF</span>
+        <span class="brand-arrow">→</span>
+        <span class="brand-md">.md</span>
+      </div>
+      <p class="tagline">Convert PDFs to clean Markdown — page by page.</p>
+    </header>
+
+    <main class="layout">
+      <!-- ── LEFT: form ─────────────────────────────────────────────────── -->
+      <section class="card form-card">
+        <form
+          id="convert-form"
+          hx-post="/convert"
+          hx-encoding="multipart/form-data"
+          hx-target="#job-id"
+          hx-swap="innerHTML"
+          hx-on::after-request="startStream(event)"
+        >
+          <label class="dropzone" for="pdf">
+            <input id="pdf" name="pdf" type="file" accept="application/pdf" required />
+            <span class="dropzone-label">
+              <strong>Drop a PDF</strong> or click to browse
+            </span>
+            <span class="dropzone-file" id="dropzone-file">No file selected</span>
+          </label>
+
+          <fieldset class="field">
+            <legend>Conversion engine</legend>
+            <div class="engine-grid">
+              {% for value, label in backends %}
+              <label class="engine-option">
+                <input
+                  type="radio"
+                  name="backend"
+                  value="{{ value }}"
+                  {% if loop.first %}checked{% endif %}
+                  hx-get="/backend-info/{{ value }}"
+                  hx-target="#backend-info"
+                  hx-trigger="change"
+                />
+                <span>{{ label }}</span>
+              </label>
+              {% endfor %}
+            </div>
+            <p id="backend-info" class="hint">{{ backend_info["docling"] }}</p>
+          </fieldset>
+
+          <fieldset class="field">
+            <legend>Options</legend>
+            <label class="check">
+              <input type="checkbox" name="device" checked />
+              <span>Use GPU (5–10× faster, needs NVIDIA)</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="ocr" />
+              <span>OCR — read text from images</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="tables" checked />
+              <span>Extract tables</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="clean_whitespace" checked />
+              <span>Collapse extra whitespace</span>
+            </label>
+          </fieldset>
+
+          <fieldset class="field" id="api-key-field">
+            <legend>LlamaParse API key</legend>
+            <input
+              type="password"
+              name="api_key"
+              placeholder="llx-…  (or set LLAMA_CLOUD_API_KEY in .env)"
+              autocomplete="off"
+            />
+          </fieldset>
+
+          <button class="btn-primary" type="submit">Convert</button>
+        </form>
+      </section>
+
+      <!-- ── RIGHT: progress + result ───────────────────────────────────── -->
+      <section class="card result-card">
+        <div id="job-id" hidden></div>
+
+        <div id="progress" class="progress-pane empty">
+          <p class="empty-msg">Upload a PDF to start.</p>
+        </div>
+
+        <div id="result"></div>
+      </section>
+    </main>
+
+    <script>
+      // ── Show selected filename in the dropzone ────────────────────────
+      document.getElementById("pdf").addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        document.getElementById("dropzone-file").textContent =
+          file ? file.name : "No file selected";
+      });
+
+      // ── Open an SSE connection once the POST returns a job id ─────────
+      function startStream(event) {
+        const jobId = document.getElementById("job-id").textContent.trim();
+        if (!jobId) return;
+
+        const progress = document.getElementById("progress");
+        const result = document.getElementById("result");
+        progress.classList.remove("empty");
+        progress.innerHTML = `
+          <div class="progress-head">
+            <span class="spinner"></span>
+            <span id="progress-status">Starting…</span>
+          </div>
+          <div class="progress-bar"><div id="progress-fill"></div></div>
+          <ul id="progress-pages" class="page-list"></ul>
+          <details class="log-details">
+            <summary>Log</summary>
+            <pre id="progress-log"></pre>
+          </details>
+        `;
+        result.innerHTML = "";
+
+        const es = new EventSource(`/events/${jobId}`);
+
+        es.addEventListener("log", (ev) => {
+          const data = JSON.parse(ev.data);
+          const log = document.getElementById("progress-log");
+          log.textContent += data.message + "\n";
+          log.scrollTop = log.scrollHeight;
+        });
+
+        es.addEventListener("page", (ev) => {
+          const data = JSON.parse(ev.data);
+          const list = document.getElementById("progress-pages");
+          const fill = document.getElementById("progress-fill");
+          const status = document.getElementById("progress-status");
+
+          let li = document.getElementById(`page-${data.page}`);
+          if (!li) {
+            li = document.createElement("li");
+            li.id = `page-${data.page}`;
+            li.className = "page-item pending";
+            li.innerHTML =
+              `<span class="page-num">${data.page}/${data.total}</span>` +
+              `<span class="page-state">…</span>`;
+            list.appendChild(li);
+          }
+          if (data.status === "done") {
+            li.className = "page-item done";
+            li.querySelector(".page-state").textContent =
+              `${data.elapsed}s`;
+            const pct = Math.round((data.page / data.total) * 100);
+            fill.style.width = `${pct}%`;
+            status.textContent = `Converted ${data.page} of ${data.total} pages`;
+          }
+        });
+
+        es.addEventListener("done", async (ev) => {
+          es.close();
+          const data = JSON.parse(ev.data);
+          document.getElementById("progress-status").textContent =
+            `Done — ${data.pages} page(s), ${data.words.toLocaleString()} words, ${data.elapsed}s`;
+          document.querySelector(".spinner")?.classList.add("hidden");
+
+          const html = await fetch(`/preview/${jobId}`).then((r) => r.text());
+          result.innerHTML = html;
+        });
+
+        es.addEventListener("error", (ev) => {
+          es.close();
+          let msg = "Conversion failed";
+          try {
+            msg = JSON.parse(ev.data).message;
+          } catch (_) {}
+          document.getElementById("progress-status").textContent = `❌ ${msg}`;
+          document.querySelector(".spinner")?.classList.add("hidden");
+        });
+
+        es.addEventListener("close", () => es.close());
+      }
+    </script>
+  </body>
+</html>

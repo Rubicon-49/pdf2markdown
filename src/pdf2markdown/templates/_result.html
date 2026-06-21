@@ -1,0 +1,16 @@
+<div class="result">
+  <div class="result-head">
+    <h2>{{ filename }}</h2>
+    <a class="btn-primary" href="/download/{{ job_id }}" download>
+      Download .md
+    </a>
+  </div>
+  <div class="stats">
+    <div><span class="stat-num">{{ "{:,}".format(words) }}</span> words</div>
+    <div><span class="stat-num">{{ "{:,}".format(lines) }}</span> lines</div>
+  </div>
+  <details open class="preview-details">
+    <summary>Preview (first 3,000 characters)</summary>
+    <pre class="preview">{{ preview }}</pre>
+  </details>
+</div>

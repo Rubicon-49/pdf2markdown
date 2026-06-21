@@ -20,3 +20,8 @@ logs/
 
 # Test cache
 .pytest_cache/
+
+# Gradio runtime directories
+.gradio/
+flagged/
+gradio_cached_examples/

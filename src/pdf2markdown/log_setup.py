@@ -20,8 +20,10 @@ def setup_logging(project_root: Path, level: int = logging.INFO) -> None:
     """Configure the root logger with a stream handler and a rotating file handler.
 
     Should be called once at application startup before any loggers are used.
-    Log files are written to ``<project_root>/logs/pdf2markdown.log`` and
-    rotated at 5 MB with up to 3 backups kept.
+    Configures the ``pdf2markdown`` logger (not the root logger) so third-party
+    library log output is unaffected. Log files are written to
+    ``<project_root>/logs/pdf2markdown.log`` and rotated at 5 MB with up to
+    3 backups kept.
 
     Args:
         project_root: Absolute path to the project root, used to resolve the
@@ -29,6 +31,10 @@ def setup_logging(project_root: Path, level: int = logging.INFO) -> None:
         level: Minimum log level for the root logger. Defaults to
             ``logging.INFO``.
     """
+    root_logger = logging.getLogger("pdf2markdown")
+    if root_logger.handlers:
+        return
+
     log_dir = project_root / "logs"
     log_dir.mkdir(exist_ok=True)
 
@@ -45,7 +51,6 @@ def setup_logging(project_root: Path, level: int = logging.INFO) -> None:
     )
     file_handler.setFormatter(fmt)
 
-    root_logger = logging.getLogger()
     root_logger.setLevel(level)
     root_logger.addHandler(stream_handler)
     root_logger.addHandler(file_handler)
